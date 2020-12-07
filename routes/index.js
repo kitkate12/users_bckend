@@ -29,12 +29,11 @@ router.get("/users/:id", (req, res) => {
     .then(
         user => {
             if(!user.exists){
-                throw new Error("User not found");
+                res.status(404).json({message:"User not found"});
             }
             return res.status(200).json(user.data());
         } 
-    ).catch(error => res.status(404).send(error));
-    
+    ).catch(error => res.status(500).send(error));   
 });
 
 //POST 
