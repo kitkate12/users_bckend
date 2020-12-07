@@ -20,7 +20,7 @@ function genId(users) {
 router.get("/users", async (req, res) => {
     //aggiorno la lista
     users.length = 0;
-    
+
     const list = await db.collection('users').get();
     list.forEach(doc => users.push(doc.data()));
     return res.json(users);
@@ -65,7 +65,6 @@ router.patch("/users/:id", async (req, res) => {
     }
 
     const u = await db.collection('users').doc(req.params.id).get();
-
     if (!u.data()) {
         return res.status(404).json({ message: "User not found" });
     }
@@ -73,15 +72,26 @@ router.patch("/users/:id", async (req, res) => {
     db.collection('users').doc(req.params.id).set({ name: req.body.name }, { merge: true });
 
     const user = users.find(val => val.id === Number(req.params.id));
-    // errore
-    //user.name = req.body.name;
+    user.name = req.body.name;
     return res.json({ massage: "Updated" });
 });
 
 //DELETE
-router.delete("/users/:id", (req, res) => {
+router.delete("/users/:id", async (req, res) => {
+    //aggiorno la lista
+     users.length = 0;
+    const list = await db.collection('users').get();
+    list.forEach(doc => users.push(doc.data()));
+
+    const u = await db.collection('users').doc(req.params.id).get();
+    if (!u.data()) {
+        return res.status(404).json({ message: "User not found" });
+    }
+
+    db.collection('users').doc(req.params.id).delete();
+
     const userIndex = users.findIndex(val => val.id === Number(req.params.id));
     users.splice(userIndex, 1);
-    return res.json({ message: "Deleted" });
+    return res.status(200).json({ message: "Deleted" });
 })
 module.exports = router; 
