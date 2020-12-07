@@ -16,14 +16,21 @@ function genId(users) {
     return users.length > 0 ? Math.max(...users.map(user => user.id)) + 1 : 1
 }
 
-//GET LIST
-router.get("/users", async (req, res) => {
-    //aggiorno la lista
+//updated list
+async function updateUsers() {
     users.length = 0;
-
     const list = await db.collection('users').get();
     list.forEach(doc => users.push(doc.data()));
-    return res.json(users);
+};
+
+//GET LIST
+router.get("/users", async (req, res) => {
+    try {
+        await updateUsers();
+        return res.status(200).json(users);
+    } catch (error) {
+        return res.status(500).send(error);
+    }
 });
 
 //GET ONE BY ID
@@ -41,57 +48,64 @@ router.get("/users/:id", (req, res) => {
 
 //POST 
 router.post("/users", async (req, res) => {
-    const list = await db.collection('users').get();
-    list.forEach(doc => users.push(doc.data()));
-    const newId = genId(users);
-    let user = {
-        id: newId,
-        name: req.body.name
-    };
-    users.push(user);
-    db.collection('users').doc(newId.toString()).set(user);
-    return res.status(201).json({ message: "Created" });
+    try {
+        await updateUsers();
+        const newId = genId(users);
+        let user = {
+            id: newId,
+            name: req.body.name
+        }
+        users.push(user);
+        db.collection('users').doc(newId.toString()).set(user);
+        return res.status(201).json({ message: "Created" });
+    } catch (error) {
+        return res.status(500).send(error);
+    }
 });
 
 //PATCH
 router.patch("/users/:id", async (req, res) => {
-    //aggiorno la lista
-    users.length = 0;
-    const list = await db.collection('users').get();
-    list.forEach(doc => users.push(doc.data()));
+    try {
+        await updateUsers();
 
-    if (!req.body.name) {
-        return res.status(400).json({ message: "You have to pass a name" });
+        if (!req.body.name) {
+            return res.status(400).json({ message: "You have to pass a name" });
+        }
+
+        const u = await db.collection('users').doc(req.params.id).get();
+        if (!u.data()) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        db.collection('users').doc(req.params.id).set({ name: req.body.name }, { merge: true });
+
+        const user = users.find(val => val.id === Number(req.params.id));
+        user.name = req.body.name;
+        return res.json({ massage: "Updated" });
+    } catch (error) {
+        return res.status(500).send(error);
     }
 
-    const u = await db.collection('users').doc(req.params.id).get();
-    if (!u.data()) {
-        return res.status(404).json({ message: "User not found" });
-    }
-
-    db.collection('users').doc(req.params.id).set({ name: req.body.name }, { merge: true });
-
-    const user = users.find(val => val.id === Number(req.params.id));
-    user.name = req.body.name;
-    return res.json({ massage: "Updated" });
 });
 
 //DELETE
 router.delete("/users/:id", async (req, res) => {
-    //aggiorno la lista
-     users.length = 0;
-    const list = await db.collection('users').get();
-    list.forEach(doc => users.push(doc.data()));
+    try{
+        await updateUsers();
 
-    const u = await db.collection('users').doc(req.params.id).get();
-    if (!u.data()) {
-        return res.status(404).json({ message: "User not found" });
+        const u = await db.collection('users').doc(req.params.id).get();
+        if (!u.data()) {
+            return res.status(404).json({ message: "User not found" });
+        }
+    
+        db.collection('users').doc(req.params.id).delete();
+    
+        const userIndex = users.findIndex(val => val.id === Number(req.params.id));
+        users.splice(userIndex, 1);
+        return res.status(200).json({ message: "Deleted" });
+    }catch (error){
+        return res.status(500).send(error);
     }
 
-    db.collection('users').doc(req.params.id).delete();
-
-    const userIndex = users.findIndex(val => val.id === Number(req.params.id));
-    users.splice(userIndex, 1);
-    return res.status(200).json({ message: "Deleted" });
 })
 module.exports = router; 
